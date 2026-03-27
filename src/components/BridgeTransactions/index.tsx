@@ -92,6 +92,68 @@ function BridgeTransactions() {
   const [tooltipReady, setTooltipReady] = useState(false);
   const tooltipTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const proxyRrIdxRef = useRef(0);
+  const lastSeenTxTimestampRef = useRef<number>(0);
+  const TX_TIMESTAMP_BUFFER_MS = 120_000; // 120s overlap to avoid missing late arrivals
+
+  const getTransactionsBaseUrls = useCallback((): string[] => {
+    // Prefer reverse proxy.
+    const proxyUrls = [networkConfig.liberdusProxyUrl]
+      .filter(Boolean)
+      .map((u) => `${u}/observer`);
+    if (proxyUrls.length > 0) return proxyUrls;
+
+    // Fallback to observers directly (no "/observer" prefix on observer service).
+    const observerUrls = (networkConfig.observerUrls ?? []).filter(Boolean);
+    if (observerUrls.length > 0) return observerUrls;
+
+    // Last resort: coordinator (legacy/emergency).
+    if (networkConfig.coordinatorUrl) return [networkConfig.coordinatorUrl];
+    return [];
+  }, []);
+
+  const buildTxUrl = useCallback(
+    (baseUrl: string, {
+      page = 1,
+      txId,
+      sender,
+      type,
+      status,
+      sinceTxTimestamp,
+    }: {
+      page?: number;
+      txId?: string;
+      sender?: string;
+      type?: TransactionType;
+      status?: TransactionStatus;
+      sinceTxTimestamp?: number;
+    } = {}) => {
+      const params = new URLSearchParams();
+      if (txId) {
+        const trimmed = txId.trim();
+        const normalized = trimmed.toLowerCase().startsWith("0x")
+          ? trimmed.toLowerCase().slice(2)
+          : trimmed.toLowerCase();
+        params.set("txId", normalized);
+      } else if (sender) {
+        params.set("sender", toEthereumAddress(sender).toLowerCase());
+        params.set("page", String(page));
+      } else if (isTransactionType(type)) {
+        params.set("type", String(type));
+        params.set("page", String(page));
+      } else if (isTransactionStatus(status)) {
+        params.set("status", String(status));
+        params.set("page", String(page));
+      } else {
+        params.set("page", String(page));
+        if (sinceTxTimestamp && sinceTxTimestamp > 0) {
+          params.set("sinceTxTimestamp", String(sinceTxTimestamp));
+        }
+      }
+      return `${baseUrl}/transaction?${params.toString()}`;
+    },
+    []
+  );
 
   const fetchTransactions = useCallback(async ({
     page = 1,
