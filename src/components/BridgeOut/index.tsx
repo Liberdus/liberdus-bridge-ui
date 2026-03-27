@@ -8,6 +8,7 @@ import {
   getContractAddress,
   isSupportedChain,
   getChainName,
+  notifyBridgeOut,
 } from "@/app/wagmi";
 import { abi } from "../../utils/abis/Liberdus.json";
 import { toast } from "react-toastify";
@@ -440,6 +441,11 @@ function BridgeOut() {
       });
 
       toast.success(`Bridge transaction completed! Hash: ${tx.hash}`);
+
+      // Notify proxy (and optionally all observers) to poll BridgeOut immediately
+      notifyBridgeOut(chainId, tx.hash).catch((err) =>
+        console.warn("[notify-bridgeout] Failed to notify:", err)
+      );
 
       // Refresh balance after successful transaction
       await fetchBalance();
