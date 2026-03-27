@@ -13,8 +13,24 @@ import {
 // Network configuration with all chain details
 export const networkConfig = {
   coordinatorUrl: "http://127.0.0.1:8000",
-  /** Liberdus proxy URL (e.g. port 3030) – used for notify-bridgeout */
+  /** Liberdus proxy URL (e.g. port 3030) – used for observer endpoints */
   liberdusProxyUrl: "http://127.0.0.1:3030",
+  /**
+   * When true, the UI will POST /notify-bridgeout directly to every observer URL
+   * (observer-only mode; proxy is skipped).
+   */
+  notifyObserverDirectly: false,
+  /**
+   * Observer base URLs (observer listens on 8100 + PARTY_INDEX).
+   * Default assumes 5 parties locally.
+   */
+  observerUrls: [
+    "http://172.22.82.166:8101",
+    "http://172.22.82.166:8102",
+    "http://172.22.82.166:8103",
+    "http://172.22.82.166:8104",
+    "http://172.22.82.166:8105",
+  ],
   vaultChain: {
     name: "Polygon Amoy Testnet",
     chainId: 80002,
