@@ -170,35 +170,81 @@ function BridgeTransactions() {
   } = {}) => {
     setLoading(true);
     setError(null);
-    setTransactions([]);
-    setTotalTransactions(0);
-
-    let txURL = `${networkConfig.coordinatorUrl}/transaction`;
-    if (txId) {
-      txURL += `?txId=${txId}`;
-    } else if (sender) {
-      txURL += `?sender=${toEthereumAddress(sender)}` + `&page=${page}`;
-    } else if (isTransactionType(type)) {
-      txURL += `?type=${type}` + `&page=${page}`;
-    } else if (isTransactionStatus(status)) {
-      txURL += `?status=${status}` + `&page=${page}`;
-    } else if (page) {
-      txURL += `?page=${page}`;
-    }
 
     try {
-      const response = await fetch(txURL);
-      const data = await response.json();
-      setTransactions(data.Ok.transactions);
-      setTotalTransactions(data.Ok.totalTranactions);
-      setTotalPages(data.Ok.totalPages);
+      const baseUrls = getTransactionsBaseUrls();
+      if (baseUrls.length === 0) throw new Error("No observer/coordinator URLs configured");
+
+      const useIncrementalSince =
+        page === 1 &&
+        !txId &&
+        !sender &&
+        type === undefined &&
+        status === undefined &&
+        !isSearchActive;
+      const sinceTxTimestamp = useIncrementalSince
+        ? Math.max(0, lastSeenTxTimestampRef.current - TX_TIMESTAMP_BUFFER_MS)
+        : undefined;
+
+      const startIdx = proxyRrIdxRef.current % baseUrls.length;
+      proxyRrIdxRef.current = (proxyRrIdxRef.current + 1) % baseUrls.length;
+
+      let lastErr: unknown = null;
+      for (let i = 0; i < baseUrls.length; i++) {
+        const baseUrl = baseUrls[(startIdx + i) % baseUrls.length];
+        const txURL = buildTxUrl(baseUrl, { page, txId, sender, type, status, sinceTxTimestamp });
+        try {
+          const response = await fetch(txURL);
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const data = await response.json();
+          const incoming: Transaction[] = data?.Ok?.transactions ?? [];
+
+          // Incremental mode: merge + de-dupe by txId.
+          if (useIncrementalSince && lastSeenTxTimestampRef.current > 0) {
+            setTransactions((prev) => {
+              const byId = new Map<string, Transaction>();
+              for (const tx of prev) byId.set(tx.txId, tx);
+              for (const tx of incoming) byId.set(tx.txId, tx);
+              const merged = Array.from(byId.values()).sort(
+                (a, b) => (b.txTimestamp ?? 0) - (a.txTimestamp ?? 0)
+              );
+              const nextLastSeen = merged.reduce(
+                (mx, tx) => Math.max(mx, tx.txTimestamp ?? 0),
+                lastSeenTxTimestampRef.current
+              );
+              lastSeenTxTimestampRef.current = nextLastSeen;
+              // Do not clobber pagination totals during incremental fetches.
+              // These incremental responses may be a filtered slice, not the full dataset.
+              setTotalTransactions((prevTotal) => Math.max(prevTotal, merged.length));
+              return merged;
+            });
+          } else {
+            // Initial load or explicit filtered/page queries: replace.
+            const next = incoming;
+            const nextLastSeen = next.reduce(
+              (mx, tx) => Math.max(mx, tx.txTimestamp ?? 0),
+              0
+            );
+            lastSeenTxTimestampRef.current = nextLastSeen;
+            setTransactions(next);
+            setTotalTransactions(data.Ok.totalTranactions ?? next.length);
+            setTotalPages(data.Ok.totalPages ?? 1);
+          }
+          lastErr = null;
+          break;
+        } catch (e) {
+          lastErr = e;
+          continue;
+        }
+      }
+      if (lastErr) throw lastErr;
     } catch (err) {
       setError("Failed to fetch bridge transactions");
       console.error("Error fetching transactions:", err);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [buildTxUrl, getTransactionsBaseUrls]);
 
   // Cleanup timeout on unmount
   useEffect(() => {
