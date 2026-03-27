@@ -6,6 +6,7 @@ import { ethers } from "ethers";
 import {
   wagmiConfig,
   networkConfig,
+  notifyBridgeOut,
   getContractAddress,
   isSupportedChain,
   getChainName,
@@ -781,12 +782,10 @@ function CrossChain() {
 
         toast.success(`Bridge transaction completed! Hash: ${tx.hash}`);
 
-        // Notify liberdus proxy to poll for BridgeOut event immediately
-        fetch(`${networkConfig.liberdusProxyUrl}/notify-bridgeout`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ chainId }),
-        }).catch((err) => console.warn("[notify-bridgeout] Failed to notify liberdus proxy:", err));
+        // Notify proxy (and optionally all observers) to poll BridgeOut immediately
+        notifyBridgeOut(chainId, tx.hash).catch((err) =>
+          console.warn("[notify-bridgeout] Failed to notify:", err)
+        );
       } else {
         // Regular (non-vault) bridge
         const contractWithSigner = contract.connect(signer) as ethers.Contract;
@@ -824,12 +823,10 @@ function CrossChain() {
 
         toast.success(`Bridge transaction completed! Hash: ${tx.hash}`);
 
-        // Notify liberdus proxy to poll for BridgeOut event immediately
-        fetch(`${networkConfig.liberdusProxyUrl}/notify-bridgeout`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ chainId }),
-        }).catch((err) => console.warn("[notify-bridgeout] Failed to notify liberdus proxy:", err));
+        // Notify proxy (and optionally all observers) to poll BridgeOut immediately
+        notifyBridgeOut(chainId, tx.hash).catch((err) =>
+          console.warn("[notify-bridgeout] Failed to notify:", err)
+        );
       }
 
       await fetchBalance();
