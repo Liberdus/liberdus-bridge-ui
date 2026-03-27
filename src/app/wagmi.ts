@@ -196,3 +196,39 @@ export const wagmiConfig = getDefaultConfig({
 // Legacy exports for backward compatibility
 export const bridgeInUsername = "liberdusbridge";
 export const liberdusExplorer = "https://dev.liberdus.com:3035/tx/";
+
+export async function notifyBridgeOut(chainId: number, txHash?: string): Promise<void> {
+  const proxyTargets: string[] = [];
+  const observerTargets: string[] = [];
+
+  if (networkConfig.notifyObserverDirectly) {
+    observerTargets.push(...(networkConfig.observerUrls ?? []));
+  } else if (networkConfig.liberdusProxyUrl) {
+    proxyTargets.push(networkConfig.liberdusProxyUrl);
+  }
+
+  if (proxyTargets.length === 0 && observerTargets.length === 0) return;
+
+  const notifyBody = JSON.stringify({ chainId });
+
+  const notifyCalls = [
+    ...proxyTargets.map((baseUrl) =>
+      fetch(`${baseUrl}/observer/notify-bridgeout`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: notifyBody,
+      })
+    ),
+    ...observerTargets.map((baseUrl) =>
+      fetch(`${baseUrl}/notify-bridgeout`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: notifyBody,
+      })
+    ),
+  ];
+  // txHash is currently informational only; observer reacts via /notify-bridgeout.
+  void txHash;
+
+  await Promise.allSettled(notifyCalls);
+}
