@@ -15,6 +15,7 @@ export const networkConfig = {
   coordinatorUrl: "http://127.0.0.1:8000",
   /** Liberdus proxy URL (e.g. port 3030) – used for observer endpoints */
   liberdusProxyUrl: "http://127.0.0.1:3030",
+  // liberdusProxyUrl: "https://dev.liberdus.com:3030", // DevNet proxy
   /**
    * When true, the UI will POST /notify-bridgeout directly to every observer URL
    * (observer-only mode; proxy is skipped).
@@ -25,24 +26,24 @@ export const networkConfig = {
    * Default assumes 5 parties locally.
    */
   observerUrls: [
-    "http://172.22.82.166:8101",
-    "http://172.22.82.166:8102",
-    "http://172.22.82.166:8103",
-    "http://172.22.82.166:8104",
-    "http://172.22.82.166:8105",
+    "http://127.0.0.1:8101",
+    "http://127.0.0.1:8102",
+    "http://127.0.0.1:8103",
+    "http://127.0.0.1:8104",
+    "http://127.0.0.1:8105",
   ],
   vaultChain: {
     name: "Polygon Amoy Testnet",
     chainId: 80002,
     rpcUrl: "https://polygon-amoy-bor-rpc.publicnode.com",
-    contractAddress: "0xf563937Bc07cEFE9Cf028956EDF575234d8303ED",
-    deploymentBlock: 35355000,
+    contractAddress: "0x45F54526165b0dC75E298A560F9a1B1cb06bb41E",
+    deploymentBlock: 35750122,
   },
   secondaryChainConfig: {
     name: "BSC Testnet",
     chainId: 97,
     rpcUrl: "https://bsc-testnet-rpc.publicnode.com",
-    contractAddress: "0x4113aED4Cb0930A7DFD76c8fF694Be7c669b50f1",
+    contractAddress: "0x48463C89254d001Bdc6B5d2af92d531E60FB4f72",
     tssSenderAddress: "0xb1325c98Bc338986B64355cD72deC0E5eEa22416",
     bridgeAddress:
       "b1325c98bc338986b64355cd72dec0e5eea22416000000000000000000000000",
@@ -58,9 +59,9 @@ export const networkConfig = {
       chainId: 80002,
       rpcUrl: "https://polygon-amoy-bor-rpc.publicnode.com",
       contractAddress: "0xD5409531c857AfD1b2fF6Cd527038e9981ef4863",
-      tssSenderAddress: "0x35576352AABCBCe19AeCE1fFD376f7C49F022706",
+      tssSenderAddress: "0x22BEAC0B1F0F370DB4D50AcEE16E9826964195F7",
       bridgeAddress:
-        "35576352aabcbce19aece1ffd376f7c49f022706000000000000000000000000",
+        "22beac0b1f0f370db4d50acee16e9826964195f7000000000000000000000000",
       gasConfig: {
         gasLimit: 200000,
         gasPriceTiers: [50, 100, 150, 200, 250, 300],
@@ -71,7 +72,7 @@ export const networkConfig = {
       name: "BSC Testnet",
       chainId: 97,
       rpcUrl: "https://bsc-testnet-rpc.publicnode.com",
-      contractAddress: "0x4113aED4Cb0930A7DFD76c8fF694Be7c669b50f1",
+      contractAddress: "0x48463C89254d001Bdc6B5d2af92d531E60FB4f72",
       tssSenderAddress: "0xb1325c98Bc338986B64355cD72deC0E5eEa22416",
       bridgeAddress:
         "b1325c98bc338986b64355cd72dec0e5eea22416000000000000000000000000",
@@ -79,13 +80,11 @@ export const networkConfig = {
         gasLimit: 200000,
         gasPriceTiers: [5, 10, 15, 20, 25, 30],
       },
-      deploymentBlock: 96441497,
+      deploymentBlock: 98195184,
     },
   },
   defaultChain: 80002,
   enableLiberdusNetwork: false,
-  liberdusNetworkId:
-    "7440f5161ffc77eed9ee91d6fbb406083192d1fe4d7e64b2f0814c0e067dcab4",
 };
 
 // Explorer URL mapping based on chain ID
