@@ -10,27 +10,35 @@ import {
   bscTestnet,
 } from "wagmi/chains";
 
+const useWslHost = false;
+const windowsWslObserverHost = "172.22.82.166";
+const apiHost = useWslHost ? windowsWslObserverHost : "127.0.0.1";
+
 // Network configuration with all chain details
 export const networkConfig = {
-  coordinatorUrl: "http://127.0.0.1:8000",
+  /** Toggle host routing mode directly in config (no env needed). */
+  useWslHost,
+  /** Windows host IP used to reach WSL services. */
+  windowsWslObserverHost,
+  coordinatorUrl: `http://${apiHost}:8000`,
   /** Liberdus proxy URL (e.g. port 3030) – used for observer endpoints */
-  liberdusProxyUrl: "http://127.0.0.1:3030",
+  liberdusProxyUrl: `http://${apiHost}:3030`,
   // liberdusProxyUrl: "https://dev.liberdus.com:3030", // DevNet proxy
   /**
    * When true, the UI will POST /notify-bridgeout directly to every observer URL
    * (observer-only mode; proxy is skipped).
    */
-  notifyObserverDirectly: false,
+  notifyObserverDirectly: true,
   /**
    * Observer base URLs (observer listens on 8100 + PARTY_INDEX).
-   * Default assumes 5 parties locally.
+   * Derived from the selected host (WSL host or localhost).
    */
   observerUrls: [
-    "http://127.0.0.1:8101",
-    "http://127.0.0.1:8102",
-    "http://127.0.0.1:8103",
-    "http://127.0.0.1:8104",
-    "http://127.0.0.1:8105",
+    `http://${apiHost}:8101`,
+    `http://${apiHost}:8102`,
+    `http://${apiHost}:8103`,
+    `http://${apiHost}:8104`,
+    `http://${apiHost}:8105`,
   ],
   vaultChain: {
     name: "Polygon Amoy Testnet",
@@ -84,7 +92,7 @@ export const networkConfig = {
     },
   },
   defaultChain: 80002,
-  enableLiberdusNetwork: false,
+  enableLiberdusNetwork: true,
 };
 
 // Explorer URL mapping based on chain ID
