@@ -97,14 +97,19 @@ function BridgeTransactions() {
   const TX_TIMESTAMP_BUFFER_MS = 120_000; // 120s overlap to avoid missing late arrivals
 
   const getTransactionsBaseUrls = useCallback((): string[] => {
-    // Prefer reverse proxy.
+    // In observer-direct mode, call observers directly first.
+    const observerUrls = (networkConfig.observerUrls ?? []).filter(Boolean);
+    if (networkConfig.notifyObserverDirectly && observerUrls.length > 0) {
+      return observerUrls;
+    }
+
+    // Otherwise prefer reverse proxy for centralized routing.
     const proxyUrls = [networkConfig.liberdusProxyUrl]
       .filter(Boolean)
       .map((u) => `${u}/observer`);
     if (proxyUrls.length > 0) return proxyUrls;
 
     // Fallback to observers directly (no "/observer" prefix on observer service).
-    const observerUrls = (networkConfig.observerUrls ?? []).filter(Boolean);
     if (observerUrls.length > 0) return observerUrls;
 
     // Last resort: coordinator (legacy/emergency).

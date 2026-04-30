@@ -16,15 +16,18 @@ import {
   getVaultContractAddress,
   isLiberdusNetworkEnabled,
 } from "@/app/wagmi";
-import { abi as LiberdusABI } from "../../utils/abis/Liberdus.json";
-import { abi as LiberdusSecondaryABI } from "../../utils/abis/LiberdusSecondary.json";
-import { abi as VaultABI } from "../../utils/abis/Vault.json";
+import LiberdusArtifact from "../../utils/abis/Liberdus.json";
+import LiberdusSecondaryArtifact from "../../utils/abis/LiberdusSecondary.json";
+import VaultArtifact from "../../utils/abis/Vault.json";
 import { toast } from "react-toastify";
 import { useAccount, useSwitchChain } from "wagmi";
 import { colors } from "@/theme/colors";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 
 const enableLiberdusNetwork = isLiberdusNetworkEnabled();
+const LiberdusABI = LiberdusArtifact.abi;
+const LiberdusSecondaryABI = LiberdusSecondaryArtifact.abi;
+const VaultABI = VaultArtifact.abi;
 
 // SVG Refresh Icon Component
 const RefreshIcon = ({ size = 12, isLoading = false }: { size?: number; isLoading?: boolean }) => (
