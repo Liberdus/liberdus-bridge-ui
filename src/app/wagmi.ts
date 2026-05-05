@@ -22,13 +22,13 @@ export const networkConfig = {
   windowsWslObserverHost,
   coordinatorUrl: `http://${apiHost}:8000`,
   /** Liberdus proxy URL (e.g. port 3030) – used for observer endpoints */
-  liberdusProxyUrl: `http://${apiHost}:3030`,
-  // liberdusProxyUrl: "https://dev.liberdus.com:3030", // DevNet proxy
+  // liberdusProxyUrl: `http://${apiHost}:3030`,
+  liberdusProxyUrl: "https://dev.liberdus.com:3030", // DevNet proxy
   /**
    * When true, the UI will POST /notify-bridgeout directly to every observer URL
    * (observer-only mode; proxy is skipped).
    */
-  notifyObserverDirectly: true,
+  notifyObserverDirectly: false,
   /**
    * Observer base URLs (observer listens on 8100 + PARTY_INDEX).
    * Derived from the selected host (WSL host or localhost).
