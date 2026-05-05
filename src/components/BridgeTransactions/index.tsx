@@ -12,13 +12,23 @@ export interface Transaction {
   sender: string;
   value: string;
   type: TransactionType;
-  txTimestamp: number;
+  txTimestamp: number;                // Source bridge tx timestamp (ms)
   chainId: number;
   status: TransactionStatus;
   receiptId: string;
-  reason?: string | null; // Optional field for error reason
-  createdAt?: string;
-  updatedAt?: string;
+  tssSender?: string | null;          // TSS sender address used for this tx
+  nonce?: number | null;              // EVM tssSender account nonce from the on-chain receipt; null for Liberdus txs
+  receiptTimestamp?: number | null;   // Liberdus tssSender receipt timestamp (ms); null for EVM txs
+  reason?: string | null;             // Reason for failure
+  executionHistory?: string | null;   // JSON: tracks failed/incompleted tx attempts
+  createdAt?: number;
+  updatedAt?: number;
+}
+
+export interface ExecutionHistoryEntry {
+  status: TransactionStatus;
+  receiptId?: string;
+  reason?: string;
 }
 
 // Derive source chain ID from transaction type:
@@ -36,17 +46,24 @@ function getDestChainId(tx: Transaction): number {
   return LIBERDUS_CHAIN_ID; // BRIDGE_OUT
 }
 
+function getReceiptChainId(tx: Transaction): number {
+  return tx.status === TransactionStatus.REVERTED
+    ? getSourceChainId(tx)
+    : getDestChainId(tx);
+}
+
 export enum TransactionStatus {
   PENDING = 0,
-  PROCESSING = 1,
-  COMPLETED = 2,
-  FAILED = 3,
-  REVERTED = 4, // tx executed but reverted on-chain
+  SUBMITTED = 1,    // Tx submitted to the network
+  COMPLETED = 2,    // Tx successfully executed
+  INCOMPLETED = 3,  // Tx submitted to chain but not processed by the chain
+  FAILED = 4,       // Tx failed in execution on chain
+  REVERTED = 5,     // Tx returned to sender (source bridge tx didn't meet criteria)
 }
 
 export enum TransactionType {
-  BRIDGE_IN = 0, // COIN to TOKEN
-  BRIDGE_OUT = 1, // TOKEN to COIN
+  BRIDGE_IN = 0,    // Liberdus → EVM: observer detects Liberdus transfer, party calls bridgeIn on EVM
+  BRIDGE_OUT = 1,   // EVM → Liberdus: observer detects BridgedOut on EVM, party sends coin on Liberdus
   BRIDGE_VAULT = 2, // VAULT to SECONDARY (vault chain → secondary EVM chain)
 }
 
@@ -63,11 +80,83 @@ export function isTransactionStatus(
 ): value is TransactionStatus {
   return (
     value === TransactionStatus.PENDING ||
-    value === TransactionStatus.PROCESSING ||
+    value === TransactionStatus.SUBMITTED ||
     value === TransactionStatus.COMPLETED ||
+    value === TransactionStatus.INCOMPLETED ||
     value === TransactionStatus.FAILED ||
     value === TransactionStatus.REVERTED
   );
+}
+
+function getStatusLabel(status: TransactionStatus): string {
+  switch (status) {
+    case TransactionStatus.PENDING:
+      return "Pending";
+    case TransactionStatus.SUBMITTED:
+      return "Submitted";
+    case TransactionStatus.COMPLETED:
+      return "Completed";
+    case TransactionStatus.INCOMPLETED:
+      return "Incompleted";
+    case TransactionStatus.FAILED:
+      return "Failed";
+    case TransactionStatus.REVERTED:
+      return "Reverted";
+    default:
+      return `Unknown(${status})`;
+  }
+}
+
+function shouldShowReasonTooltip(status: TransactionStatus): boolean {
+  return (
+    status === TransactionStatus.INCOMPLETED ||
+    status === TransactionStatus.FAILED ||
+    status === TransactionStatus.REVERTED
+  );
+}
+
+function formatReasonText(reason: string): string {
+  return reason
+    .replace(/\\\"/g, '"')
+    .replace(/\\n/g, "\n")
+    .replace(/({|\[)/g, "$1\n  ")
+    .replace(/(}|])/g, "\n$1")
+    .replace(/,(?!\s*[\n}])/g, ",\n  ");
+}
+
+function getReasonFromHistory(executionHistory?: string | null): string | null {
+  if (!executionHistory) return null;
+
+  try {
+    const parsed: unknown = JSON.parse(executionHistory);
+    const entries = Array.isArray(parsed)
+      ? parsed
+      : typeof parsed === "object" && parsed !== null
+      ? Object.values(parsed)
+      : [];
+
+    for (const entry of entries.reverse()) {
+      if (
+        typeof entry === "object" &&
+        entry !== null &&
+        "reason" in entry &&
+        typeof (entry as { reason?: unknown }).reason === "string" &&
+        (entry as { reason: string }).reason.trim()
+      ) {
+        return (entry as { reason: string }).reason;
+      }
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+function getTransactionReason(tx: Transaction): string | null {
+  const directReason = tx.reason?.trim();
+  if (directReason) return directReason;
+  return getReasonFromHistory(tx.executionHistory);
 }
 
 function BridgeTransactions() {
@@ -285,7 +374,7 @@ function BridgeTransactions() {
       value: "status",
       label: "Transaction Status",
       placeholder:
-        "Enter transaction status... ( 0: pending, 1: processing, 2: completed, 3: failed )",
+        "Enter transaction status... ( 0: pending, 1: submitted, 2: completed, 3: incompleted, 4: failed, 5: reverted )",
     },
   ];
 
@@ -334,7 +423,7 @@ function BridgeTransactions() {
         case "status":
           const queryAsNumber = parseInt(query);
           if (!isTransactionStatus(queryAsNumber)) {
-            setSearchError("Invalid status. Use '0', '1', '2' or '3'.");
+            setSearchError("Invalid status. Use '0', '1', '2', '3', '4' or '5'.");
             return false;
           }
           fetchTransactions({ status: queryAsNumber, page });
@@ -452,10 +541,13 @@ function BridgeTransactions() {
       case TransactionStatus.COMPLETED:
         return colors.status.success;
       case TransactionStatus.PENDING:
+      case TransactionStatus.SUBMITTED:
+      case TransactionStatus.INCOMPLETED:
         return colors.status.warning;
       case TransactionStatus.FAILED:
-      case TransactionStatus.REVERTED:
         return colors.status.error;
+      case TransactionStatus.REVERTED:
+        return colors.status.infoText;
       default:
         return colors.text.muted;
     }
@@ -466,10 +558,13 @@ function BridgeTransactions() {
       case TransactionStatus.COMPLETED:
         return colors.status.successBg;
       case TransactionStatus.PENDING:
+      case TransactionStatus.SUBMITTED:
+      case TransactionStatus.INCOMPLETED:
         return colors.status.warningBg;
       case TransactionStatus.FAILED:
-      case TransactionStatus.REVERTED:
         return colors.status.errorBg;
+      case TransactionStatus.REVERTED:
+        return colors.status.infoBg;
       default:
         return colors.action.hover;
     }
@@ -480,10 +575,13 @@ function BridgeTransactions() {
       case TransactionStatus.COMPLETED:
         return `1px solid ${colors.status.successBorder}`;
       case TransactionStatus.PENDING:
+      case TransactionStatus.SUBMITTED:
+      case TransactionStatus.INCOMPLETED:
         return `1px solid ${colors.status.warningBorder}`;
       case TransactionStatus.FAILED:
-      case TransactionStatus.REVERTED:
         return `1px solid ${colors.status.errorBorder}`;
+      case TransactionStatus.REVERTED:
+        return `1px solid ${colors.status.infoBorder}`;
       default:
         return `1px solid ${colors.border.subtle}`;
     }
@@ -1231,23 +1329,11 @@ function BridgeTransactions() {
                                   borderRadius: "50%",
                                 }}
                               ></div>
-                              <span>
-                                {tx.status === TransactionStatus.COMPLETED
-                                  ? "Completed"
-                                  : tx.status === TransactionStatus.FAILED
-                                  ? "Failed"
-                                  : tx.status === TransactionStatus.REVERTED
-                                  ? "Reverted"
-                                  : tx.status === TransactionStatus.PENDING
-                                  ? "Pending"
-                                  : tx.status === TransactionStatus.PROCESSING
-                                  ? "Processing"
-                                  : "Unknown"}
-                              </span>
+                              <span>{getStatusLabel(tx.status)}</span>
                             </span>
 
-                            {/* Add tooltip icon for failed/reverted transactions */}
-                            {(tx.status === TransactionStatus.FAILED || tx.status === TransactionStatus.REVERTED) && (
+                            {/* Add tooltip icon for transactions that may carry failure details */}
+                            {shouldShowReasonTooltip(tx.status) && (
                               <div
                                 style={{
                                   position: "relative",
@@ -1338,7 +1424,7 @@ function BridgeTransactions() {
                             "-"
                           ) : (
                             <a
-                              href={getExplorerUrl(getDestChainId(tx), tx.receiptId)}
+                              href={getExplorerUrl(getReceiptChainId(tx), tx.receiptId)}
                               target="_blank"
                               rel="noopener noreferrer"
                               style={{
@@ -1547,7 +1633,10 @@ function BridgeTransactions() {
                   WebkitTextFillColor: "transparent",
                 }}
               >
-                Transaction Failed
+                {(() => {
+                  const tx = transactions.find((t) => t.txId === tooltipVisible);
+                  return tx ? `Transaction ${getStatusLabel(tx.status)}` : "Transaction Details";
+                })()}
               </span>
             </div>
 
@@ -1571,14 +1660,9 @@ function BridgeTransactions() {
               {(() => {
                 const tx = transactions.find((t) => t.txId === tooltipVisible);
                 if (!tx) return "Transaction not found.";
-                if (tx.status === TransactionStatus.REVERTED) return "Check the receipt for failed reason.";
-                if (!tx.reason) return "No failure reason available.";
-                return tx.reason
-                  .replace(/\\\"/g, '"') // Unescape quotes
-                  .replace(/\\n/g, "\n") // Replace escaped newlines
-                  .replace(/({|\[)/g, "$1\n  ") // Add newline + indent after { or [
-                  .replace(/(}|])/g, "\n$1") // Add newline before } or ]
-                  .replace(/,(?!\s*[\n}])/g, ",\n  "); // Add newline after commas (except before closing })
+                const reason = getTransactionReason(tx);
+                if (!reason) return "No reason available.";
+                return formatReasonText(reason);
               })()}
             </div>
 
