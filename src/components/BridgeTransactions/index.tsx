@@ -461,7 +461,9 @@ function BridgeTransactions() {
   const clearAllFilters = () => {
     setIsSearchActive(false);
     setSearchQuery("");
+    setSearchError("");
     setPage(1);
+    unfilteredTxCacheRef.current.clear();
     fetchTransactions({ page: 1 });
   };
 
