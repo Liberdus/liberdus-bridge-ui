@@ -160,6 +160,7 @@ function getTransactionReason(tx: Transaction): string | null {
 }
 
 function BridgeTransactions() {
+  const PAGE_SIZE = 10;
   const [totalTransactions, setTotalTransactions] = useState<number>(0);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
