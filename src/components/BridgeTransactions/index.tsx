@@ -346,7 +346,16 @@ function BridgeTransactions() {
 
   useEffect(() => {
     fetchTransactions();
-  }, []);
+  }, [fetchTransactions]);
+
+  // Auto-refresh first page in the background so new transactions appear without full reloads.
+  useEffect(() => {
+    if (isSearchActive || page !== 1) return;
+    const id = setInterval(() => {
+      void fetchTransactions({ page: 1, silent: true });
+    }, 15000);
+    return () => clearInterval(id);
+  }, [fetchTransactions, isSearchActive, page]);
 
   const searchTypes = [
     {
