@@ -214,14 +214,12 @@ function BridgeTransactions() {
       sender,
       type,
       status,
-      sinceTxTimestamp,
     }: {
       page?: number;
       txId?: string;
       sender?: string;
       type?: TransactionType;
       status?: TransactionStatus;
-      sinceTxTimestamp?: number;
     } = {}) => {
       const params = new URLSearchParams();
       if (txId) {
@@ -241,9 +239,6 @@ function BridgeTransactions() {
         params.set("page", String(page));
       } else {
         params.set("page", String(page));
-        if (sinceTxTimestamp && sinceTxTimestamp > 0) {
-          params.set("sinceTxTimestamp", String(sinceTxTimestamp));
-        }
       }
       return `${baseUrl}/transaction?${params.toString()}`;
     },
