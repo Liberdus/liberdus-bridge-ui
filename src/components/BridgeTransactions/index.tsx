@@ -183,8 +183,17 @@ function BridgeTransactions() {
   const tooltipTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const proxyRrIdxRef = useRef(0);
-  const lastSeenTxTimestampRef = useRef<number>(0);
-  const TX_TIMESTAMP_BUFFER_MS = 120_000; // 120s overlap to avoid missing late arrivals
+  const activeRequestIdRef = useRef(0);
+  const unfilteredTxCacheRef = useRef<Map<string, Transaction>>(new Map());
+
+  const mergeIntoUnfilteredCache = useCallback((incoming: Transaction[]): Transaction[] => {
+    for (const tx of incoming) {
+      unfilteredTxCacheRef.current.set(tx.txId, tx);
+    }
+    return Array.from(unfilteredTxCacheRef.current.values()).sort(
+      (a, b) => (b.txTimestamp ?? 0) - (a.txTimestamp ?? 0)
+    );
+  }, []);
 
   const getTransactionsBaseUrls = useCallback((): string[] => {
     // In observer-direct mode, call observers directly first.
