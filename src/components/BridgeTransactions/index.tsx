@@ -260,30 +260,24 @@ function BridgeTransactions() {
     sender,
     type,
     status,
+    silent = false,
   }: {
     page?: number;
     txId?: string;
     sender?: string;
     type?: TransactionType;
     status?: TransactionStatus;
+    silent?: boolean;
   } = {}) => {
-    setLoading(true);
+    const requestId = ++activeRequestIdRef.current;
+    if (!silent) {
+      setLoading(true);
+    }
     setError(null);
 
     try {
       const baseUrls = getTransactionsBaseUrls();
       if (baseUrls.length === 0) throw new Error("No observer/coordinator URLs configured");
-
-      const useIncrementalSince =
-        page === 1 &&
-        !txId &&
-        !sender &&
-        type === undefined &&
-        status === undefined &&
-        !isSearchActive;
-      const sinceTxTimestamp = useIncrementalSince
-        ? Math.max(0, lastSeenTxTimestampRef.current - TX_TIMESTAMP_BUFFER_MS)
-        : undefined;
 
       const startIdx = proxyRrIdxRef.current % baseUrls.length;
       proxyRrIdxRef.current = (proxyRrIdxRef.current + 1) % baseUrls.length;
@@ -291,44 +285,36 @@ function BridgeTransactions() {
       let lastErr: unknown = null;
       for (let i = 0; i < baseUrls.length; i++) {
         const baseUrl = baseUrls[(startIdx + i) % baseUrls.length];
-        const txURL = buildTxUrl(baseUrl, { page, txId, sender, type, status, sinceTxTimestamp });
+        const txURL = buildTxUrl(baseUrl, { page, txId, sender, type, status });
         try {
           const response = await fetch(txURL);
           if (!response.ok) throw new Error(`HTTP ${response.status}`);
           const data = await response.json();
           const incoming: Transaction[] = data?.Ok?.transactions ?? [];
+          const isUnfilteredRequest =
+            !txId && !sender && type === undefined && status === undefined;
 
-          // Incremental mode: merge + de-dupe by txId.
-          if (useIncrementalSince && lastSeenTxTimestampRef.current > 0) {
-            setTransactions((prev) => {
-              const byId = new Map<string, Transaction>();
-              for (const tx of prev) byId.set(tx.txId, tx);
-              for (const tx of incoming) byId.set(tx.txId, tx);
-              const merged = Array.from(byId.values()).sort(
-                (a, b) => (b.txTimestamp ?? 0) - (a.txTimestamp ?? 0)
-              );
-              const nextLastSeen = merged.reduce(
-                (mx, tx) => Math.max(mx, tx.txTimestamp ?? 0),
-                lastSeenTxTimestampRef.current
-              );
-              lastSeenTxTimestampRef.current = nextLastSeen;
-              // Do not clobber pagination totals during incremental fetches.
-              // These incremental responses may be a filtered slice, not the full dataset.
-              setTotalTransactions((prevTotal) => Math.max(prevTotal, merged.length));
-              return merged;
-            });
-          } else {
-            // Initial load or explicit filtered/page queries: replace.
-            const next = incoming;
-            const nextLastSeen = next.reduce(
-              (mx, tx) => Math.max(mx, tx.txTimestamp ?? 0),
-              0
-            );
-            lastSeenTxTimestampRef.current = nextLastSeen;
-            setTransactions(next);
-            setTotalTransactions(data.Ok.totalTranactions ?? next.length);
-            setTotalPages(data.Ok.totalPages ?? 1);
+          // A newer request started while this one was in-flight.
+          if (requestId !== activeRequestIdRef.current) return;
+
+          let next = incoming;
+          if (isUnfilteredRequest) {
+            const merged = mergeIntoUnfilteredCache(incoming);
+            const start = (page - 1) * PAGE_SIZE;
+            const end = start + PAGE_SIZE;
+            const cachedSlice = merged.slice(start, end);
+            // Prefer cached slice when available so list remains stable across updates.
+            if (cachedSlice.length > 0 || page === 1) {
+              next = cachedSlice;
+            }
           }
+          setTransactions(next);
+          const totalFromApi =
+            data?.Ok?.totalTransactions ??
+            data?.Ok?.totalTranactions ??
+            next.length;
+          setTotalTransactions(totalFromApi);
+          setTotalPages(data?.Ok?.totalPages ?? Math.max(1, Math.ceil(totalFromApi / PAGE_SIZE)));
           lastErr = null;
           break;
         } catch (e) {
