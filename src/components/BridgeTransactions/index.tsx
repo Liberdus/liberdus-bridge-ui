@@ -324,12 +324,16 @@ function BridgeTransactions() {
       }
       if (lastErr) throw lastErr;
     } catch (err) {
-      setError("Failed to fetch bridge transactions");
-      console.error("Error fetching transactions:", err);
+      if (requestId === activeRequestIdRef.current) {
+        setError("Failed to fetch bridge transactions");
+        console.error("Error fetching transactions:", err);
+      }
     } finally {
-      setLoading(false);
+      if (!silent && requestId === activeRequestIdRef.current) {
+        setLoading(false);
+      }
     }
-  }, [buildTxUrl, getTransactionsBaseUrls]);
+  }, [buildTxUrl, getTransactionsBaseUrls, mergeIntoUnfilteredCache]);
 
   // Cleanup timeout on unmount
   useEffect(() => {
