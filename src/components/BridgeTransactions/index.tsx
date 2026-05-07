@@ -1088,7 +1088,14 @@ function BridgeTransactions() {
               <input
                 type="text"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  const nextValue = e.target.value;
+                  const trimmed = nextValue.trim().toLowerCase();
+                  if (trimmed.startsWith("0x") && searchType !== "sender") {
+                    setSearchType("sender");
+                  }
+                  setSearchQuery(nextValue);
+                }}
                 placeholder={currentSearchType?.placeholder}
                 style={{
                   flex: "1",
