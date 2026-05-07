@@ -172,6 +172,7 @@ function BridgeTransactions() {
   const [searchError, setSearchError] = useState("");
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isLegendOpen, setIsLegendOpen] = useState(false);
   const dropdownRef = useRef(null);
   const [tooltipVisible, setTooltipVisible] = useState<string | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState({
@@ -489,16 +490,22 @@ function BridgeTransactions() {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setIsDropdownOpen(false);
       }
+      if (isLegendOpen) {
+        const target = event.target as HTMLElement | null;
+        if (!target?.closest?.('[data-filter-legend="container"]')) {
+          setIsLegendOpen(false);
+        }
+      }
     };
 
-    if (isDropdownOpen) {
+    if (isDropdownOpen || isLegendOpen) {
       document.addEventListener("mousedown", handleClickOutside);
     }
 
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [isDropdownOpen]);
+  }, [isDropdownOpen, isLegendOpen]);
 
   const getBridgeChainName = (chainId: number): string => {
     if (chainId === LIBERDUS_CHAIN_ID) return "Liberdus Network";
@@ -741,6 +748,96 @@ function BridgeTransactions() {
                 gap: "0.75rem",
               }}
             >
+              <div style={{ position: "relative" }} data-filter-legend="container">
+                <button
+                  onClick={() => setIsLegendOpen((prev) => !prev)}
+                  style={{
+                    padding: "0.45rem 0.7rem",
+                    background: isLegendOpen ? colors.primary.bg : colors.background.card,
+                    border: `1px solid ${isLegendOpen ? colors.primary.border : colors.border.subtle}`,
+                    borderRadius: "0.5rem",
+                    color: isLegendOpen ? colors.primary.main : colors.text.secondary,
+                    fontSize: "0.75rem",
+                    fontWeight: "600",
+                    cursor: "pointer",
+                    transition: "all 0.2s",
+                  }}
+                >
+                  Filter Legend {isLegendOpen ? "▲" : "▼"}
+                </button>
+                {isLegendOpen && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      right: 0,
+                      top: "calc(100% + 0.4rem)",
+                      width: "23rem",
+                      background: colors.background.card,
+                      border: `1px solid ${colors.border.subtle}`,
+                      borderRadius: "0.75rem",
+                      boxShadow: colors.shadows.xl,
+                      padding: "0.9rem",
+                      zIndex: 1002,
+                    }}
+                  >
+                    <div style={{ fontSize: "0.8rem", fontWeight: "700", color: colors.text.primary, marginBottom: "0.6rem" }}>
+                      Transaction Filters
+                    </div>
+                    <div style={{ fontSize: "0.74rem", color: colors.text.secondary, lineHeight: 1.5 }}>
+                      <div style={{ marginBottom: "0.35rem" }}>
+                        <strong style={{ color: colors.text.primary }}>Transaction ID:</strong> 64 hex chars (or <code>0x</code> + 64)
+                      </div>
+                      <div style={{ marginBottom: "0.55rem" }}>
+                        <strong style={{ color: colors.text.primary }}>Sender Address:</strong> EVM address like <code>0x...</code>
+                      </div>
+
+                      <div style={{ fontSize: "0.7rem", fontWeight: "700", color: colors.text.muted, textTransform: "uppercase", marginBottom: "0.3rem" }}>
+                        Bridge Type
+                      </div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem", marginBottom: "0.65rem" }}>
+                        {["in = Bridge In", "out = Bridge Out", "vault = Bridge Vault"].map((item) => (
+                          <span
+                            key={item}
+                            style={{
+                              padding: "0.2rem 0.45rem",
+                              borderRadius: "9999px",
+                              border: `1px solid ${colors.primary.border}`,
+                              background: colors.primary.bg,
+                              color: colors.primary.main,
+                              fontSize: "0.7rem",
+                              fontWeight: "600",
+                            }}
+                          >
+                            {item}
+                          </span>
+                        ))}
+                      </div>
+
+                      <div style={{ fontSize: "0.7rem", fontWeight: "700", color: colors.text.muted, textTransform: "uppercase", marginBottom: "0.3rem" }}>
+                        Status Codes
+                      </div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem" }}>
+                        {["0 Pending", "1 Submitted", "2 Completed", "3 Incompleted", "4 Failed", "5 Reverted"].map((item) => (
+                          <span
+                            key={item}
+                            style={{
+                              padding: "0.2rem 0.45rem",
+                              borderRadius: "9999px",
+                              border: `1px solid ${colors.status.infoBorder}`,
+                              background: colors.status.infoBg,
+                              color: colors.status.infoText,
+                              fontSize: "0.7rem",
+                              fontWeight: "600",
+                            }}
+                          >
+                            {item}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
               {/* Total Transactions Display */}
               {!isSearchActive && (
                 <div
