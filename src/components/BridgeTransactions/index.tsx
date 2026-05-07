@@ -1300,7 +1300,6 @@ function BridgeTransactions() {
                         key={tx.txId}
                         style={{
                           transition: "all 0.2s",
-                          cursor: "pointer",
                         }}
                         className="transaction-row"
                       >
@@ -1921,10 +1920,7 @@ function BridgeTransactions() {
           background: ${colors.base.slate50};
         }
         .transaction-row:hover td {
-          background: ${colors.base.slate100} !important;
-        }
-        .transaction-row:hover td:first-child {
-          box-shadow: inset 3px 0 0 ${colors.primary.main};
+          background: ${colors.base.slate50} !important;
         }
         .transaction-row td {
           transition: background 0.15s ease;
