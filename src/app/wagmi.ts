@@ -20,7 +20,6 @@ export const networkConfig = {
   useWslHost,
   /** Windows host IP used to reach WSL services. */
   windowsWslObserverHost,
-  coordinatorUrl: `http://${apiHost}:8000`,
   /** Liberdus proxy URL (e.g. port 3030) – used for observer endpoints */
   // liberdusProxyUrl: `http://${apiHost}:3030`,
   liberdusProxyUrl: "https://dev.liberdus.com:3030", // DevNet proxy

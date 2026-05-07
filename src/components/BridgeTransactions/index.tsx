@@ -211,8 +211,6 @@ function BridgeTransactions() {
     // Fallback to observers directly (no "/observer" prefix on observer service).
     if (observerUrls.length > 0) return observerUrls;
 
-    // Last resort: coordinator (legacy/emergency).
-    if (networkConfig.coordinatorUrl) return [networkConfig.coordinatorUrl];
     return [];
   }, []);
 
@@ -277,7 +275,7 @@ function BridgeTransactions() {
 
     try {
       const baseUrls = getTransactionsBaseUrls();
-      if (baseUrls.length === 0) throw new Error("No observer/coordinator URLs configured");
+      if (baseUrls.length === 0) throw new Error("No observer URLs configured");
 
       const startIdx = proxyRrIdxRef.current % baseUrls.length;
       proxyRrIdxRef.current = (proxyRrIdxRef.current + 1) % baseUrls.length;
