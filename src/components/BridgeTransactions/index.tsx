@@ -173,7 +173,9 @@ function BridgeTransactions() {
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isLegendOpen, setIsLegendOpen] = useState(false);
+  const [copiedCell, setCopiedCell] = useState<string | null>(null);
   const dropdownRef = useRef(null);
+  const copyResetTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [tooltipVisible, setTooltipVisible] = useState<string | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState({
     x: 0,
@@ -339,6 +341,9 @@ function BridgeTransactions() {
     return () => {
       if (tooltipTimeoutRef.current) {
         clearTimeout(tooltipTimeoutRef.current);
+      }
+      if (copyResetTimeoutRef.current) {
+        clearTimeout(copyResetTimeoutRef.current);
       }
     };
   }, []);
@@ -597,6 +602,28 @@ function BridgeTransactions() {
         return `1px solid ${colors.border.subtle}`;
     }
   };
+
+  const handleCopyToClipboard = useCallback(async (value: string, cellKey: string) => {
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(value);
+      } else {
+        const el = document.createElement("textarea");
+        el.value = value;
+        document.body.appendChild(el);
+        el.select();
+        document.execCommand("copy");
+        document.body.removeChild(el);
+      }
+      setCopiedCell(cellKey);
+      if (copyResetTimeoutRef.current) {
+        clearTimeout(copyResetTimeoutRef.current);
+      }
+      copyResetTimeoutRef.current = setTimeout(() => setCopiedCell(null), 1200);
+    } catch (e) {
+      console.error("Failed to copy text:", e);
+    }
+  }, []);
 
   const handleNextPage = () => {
     if (page < totalPages) {
@@ -1311,7 +1338,22 @@ function BridgeTransactions() {
                             borderBottom: `1px solid ${colors.border.subtle}`,
                           }}
                         >
-                          {formatAddress(tx.sender)}
+                          <button
+                            onClick={() => void handleCopyToClipboard(tx.sender, `sender:${tx.txId}`)}
+                            style={{
+                              border: "none",
+                              background: "transparent",
+                              padding: 0,
+                              margin: 0,
+                              color: copiedCell === `sender:${tx.txId}` ? colors.status.success : colors.text.primary,
+                              cursor: "copy",
+                              fontFamily: "inherit",
+                              fontSize: "inherit",
+                            }}
+                            title={copiedCell === `sender:${tx.txId}` ? "Copied" : "Click to copy sender"}
+                          >
+                            {formatAddress(tx.sender)}
+                          </button>
                         </td>
                         <td
                           style={{
